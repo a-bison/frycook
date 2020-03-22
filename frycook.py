@@ -2,9 +2,17 @@
 
 from PIL import Image, ImageEnhance, ImageSequence
 import io
+import os
+import sys
 import wx
 
 from pathlib import Path
+
+
+if hasattr(sys, "_MEIPASS"):
+    DATADIR = Path(sys._MEIPASS)
+else:
+    DATADIR = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
 class ImageFryerSettings:
@@ -216,7 +224,7 @@ class MainWindow(wx.Frame):
         style = wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX)
         wx.Frame.__init__(self, None, title="Frycook", size=(500, 200),
                           style=style)
-        self.SetIcon(wx.Icon("icon.ico"))
+        self.SetIcon(wx.Icon(str(DATADIR / "icon.ico")))
 
         p = wx.Panel(self)
         nb = wx.Notebook(p)
