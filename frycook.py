@@ -1,60 +1,128 @@
 #!/bin/env python3
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageSequence
+import io
 import wx
 
 from pathlib import Path
 
 
-class FryerSettings:
+class ImageFryerSettings:
     def __init__(self):
         self.jpeg_quality = 1
         self.saturation = 8
 
 
-class Fryer:
+def get_fried_save_location(path, suffix):
+    save_directory = path.parent
+    save_location = save_directory / ("deepfried_" + path.suffix[1:] + "_" +
+                                      path.stem + suffix)
+
+    print("convert " + str(path))
+    print("save to " + str(save_location))
+
+    return save_location
+
+
+# Fry a single PIL image and save it somewhere
+def fry_single_image(img, save_location, *, saturation, jpeg_quality):
+    img = img.convert("RGB")
+    img = ImageEnhance.Color(img).enhance(saturation)
+
+    img.save(save_location, "JPEG", quality=jpeg_quality)
+
+
+class StillImageFryer:
     def __init__(self, settings):
         self.settings = settings
 
     def fry(self, path):
         s = self.settings
-
-        save_directory = path.parent
-        save_location = save_directory / ("deepfried_" + path.stem +
-                                          path.suffix)
-
-        print("convert " + str(path))
-        print("save to " + str(save_location))
+        save_location = get_fried_save_location(path, ".jpg")
 
         img = Image.open(path)
-        img = img.convert("RGB")
-
-        img = ImageEnhance.Color(img).enhance(s.saturation)
-
-        img.save(save_location, "JPEG", quality=s.jpeg_quality)
+        fry_single_image(img, save_location,
+                         saturation=s.saturation,
+                         jpeg_quality=s.jpeg_quality)
 
     def is_file_supported(self, path):
         return path.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp"]
 
 
+class GifFryer:
+    def __init__(self, settings):
+        self.settings = settings
+
+    # Get gif info we should save with based on the original gif parameters
+    def get_gif_args(self, gif_info):
+        gif_save_args = {
+            "optimize": False,
+            "duration": gif_info["duration"],
+            "loop": 0
+        }
+
+        gif_transparency = gif_info.get("transparency", None)
+        if gif_transparency is not None:
+            gif_save_args["transparency"] = gif_transparency
+
+        return gif_save_args
+
+    # Fry a single frame of the gif, based on our settings
+    def fry_frame(self, img):
+        frame_buf = io.BytesIO()
+        s = self.settings
+
+        fry_single_image(img, frame_buf,
+                         saturation=s.saturation,
+                         jpeg_quality=s.jpeg_quality)
+
+        frame_buf.seek(0)
+        return Image.open(frame_buf)
+
+    def fry(self, path):
+        save_location = get_fried_save_location(path, ".gif")
+
+        img = Image.open(path)
+
+        gif_save_args = self.get_gif_args(img.info)
+        fried_frames = [self.fry_frame(i) for i in ImageSequence.Iterator(img)]
+
+        fried_frames[0].save(save_location, "GIF", save_all=True,
+                             append_images=fried_frames[1:], **gif_save_args)
+
+    def is_file_supported(self, path):
+        return path.suffix.lower() == ".gif"
+
+
 class FryTarget(wx.FileDropTarget):
-    def __init__(self, fryer):
+    def __init__(self, fryers):
         super().__init__()
-        self.fryer = fryer
+        self.fryers = fryers
+
+    def get_fryer(self, path):
+        for fryer in self.fryers:
+            if fryer.is_file_supported(path):
+                return fryer
+
+        return None
 
     def OnDropFiles(self, x, y, filenames):
         for filename in filenames:
-            if self.fryer.is_file_supported(Path(filename)):
-                self.fryer.fry(Path(filename))
+            fryer = self.get_fryer(Path(filename))
+
+            if not fryer:
+                continue
+
+            fryer.fry(Path(filename))
 
         return True
 
 
 class ConvertPanel(wx.Panel):
-    def __init__(self, parent, fryer):
+    def __init__(self, parent, *fryers):
         super().__init__(parent)
 
-        self.SetDropTarget(FryTarget(fryer))
+        self.SetDropTarget(FryTarget(fryers))
 
         drop_text = wx.StaticText(self, label="Drag and Drop Files")
         drop_text_font = drop_text.GetFont()
@@ -144,7 +212,7 @@ class ConvertSettingsPanel(wx.Panel):
 
 
 class MainWindow(wx.Frame):
-    def __init__(self, fryer):
+    def __init__(self, img_fryer, gif_fryer):
         style = wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX)
         wx.Frame.__init__(self, None, title="Frycook", size=(500, 200),
                           style=style)
@@ -153,11 +221,14 @@ class MainWindow(wx.Frame):
         p = wx.Panel(self)
         nb = wx.Notebook(p)
 
-        self.convert_panel = ConvertPanel(nb, fryer)
-        self.convert_settings_panel = ConvertSettingsPanel(nb, fryer)
+        self.convert_panel = ConvertPanel(nb, img_fryer, gif_fryer)
+
+        # Settings are shared between img and gif fryer, so we only pass
+        # in img_fryer
+        self.convert_settings_panel = ConvertSettingsPanel(nb, img_fryer)
 
         nb.AddPage(self.convert_panel, "Fryer")
-        nb.AddPage(self.convert_settings_panel, "Settings")
+        nb.AddPage(self.convert_settings_panel, "Image/.gif Settings")
 
         sizer = wx.BoxSizer()
         sizer.Add(nb, 1, wx.EXPAND)
@@ -167,11 +238,13 @@ class MainWindow(wx.Frame):
 def main():
     app = wx.App(False)
 
-    fry_settings = FryerSettings()
+    fry_settings = ImageFryerSettings()
 
-    fryer = Fryer(fry_settings)
+    img_fryer = StillImageFryer(fry_settings)
+    gif_fryer = GifFryer(fry_settings)
 
-    frame = MainWindow(fryer)
+    frame = MainWindow(img_fryer=img_fryer,
+                       gif_fryer=gif_fryer)
     frame.Show(True)
 
     app.MainLoop()
