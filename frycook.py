@@ -39,16 +39,13 @@ class FryTarget(wx.FileDropTarget):
         return True
 
 
-class MainWindow(wx.Frame):
-    def __init__(self, fryer):
-        wx.Frame.__init__(self, None, title="Frycook", size=(500, 200))
-        self.SetIcon(wx.Icon("icon.ico"))
+class ConvertPanel(wx.Panel):
+    def __init__(self, parent, fryer):
+        super().__init__(parent)
 
         self.SetDropTarget(FryTarget(fryer))
 
-        convert_panel = wx.Panel(self)
-
-        drop_text = wx.StaticText(convert_panel, label="Drag and Drop Files")
+        drop_text = wx.StaticText(self, label="Drag and Drop Files")
         drop_text_font = drop_text.GetFont()
         drop_text_font.SetPointSize(32)
         drop_text_font.SetFamily(wx.FONTFAMILY_MODERN)
@@ -59,7 +56,15 @@ class MainWindow(wx.Frame):
         sizer.AddStretchSpacer()
         sizer.Add(drop_text, 0, wx.CENTER)
         sizer.AddStretchSpacer()
-        convert_panel.SetSizer(sizer)
+        self.SetSizer(sizer)
+
+
+class MainWindow(wx.Frame):
+    def __init__(self, fryer):
+        wx.Frame.__init__(self, None, title="Frycook", size=(500, 200))
+        self.SetIcon(wx.Icon("icon.ico"))
+
+        self.convert_panel = ConvertPanel(self, fryer)
 
 
 def main():
