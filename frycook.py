@@ -34,7 +34,7 @@ class Fryer:
         img.save(save_location, "JPEG", quality=s.jpeg_quality)
 
     def is_file_supported(self, path):
-        return path.suffix in [".png", ".jpg", ".jpeg"]
+        return path.suffix in [".png", ".jpg", ".jpeg", ".bmp"]
 
 
 class FryTarget(wx.FileDropTarget):
