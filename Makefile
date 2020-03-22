@@ -11,5 +11,4 @@ clean:
 
 dist/frycook.exe:
 	rm -rf dist
-	pyinstaller --add-data 'icon.ico;.' -w -i icon.ico \
-      --onefile frycook.py
+	pyinstaller --add-data 'icon.ico;.' -w -i icon.ico --onefile frycook.py
