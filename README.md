@@ -6,3 +6,6 @@ Automated deep frying of images.
 - png
 - jpg
 - bmp
+
+## Source Code
+Visit https://github.com/a-bison/frycook for the source code.
