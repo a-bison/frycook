@@ -1,7 +1,9 @@
-# frycook
-Automated deep frying of images.
+# frycook v0.0.2
+Automated deep frying of images and video.
 
 ## Supported Formats
+- mp4
+- webm
 - gif
 - png
 - jpg

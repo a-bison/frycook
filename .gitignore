@@ -130,3 +130,10 @@ dmypy.json
 
 # Vim swap files
 *.swp
+
+# Build stamp files
+*.stamp
+
+# Custom build dirs
+ffmpeg/
+dl/
